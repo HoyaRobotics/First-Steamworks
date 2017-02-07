@@ -1,3 +1,5 @@
+package org.usfirst.frc.team4152.robot;
+
 import edu.wpi.first.wpilibj.RobotDrive;
 import edu.wpi.first.wpilibj.SampleRobot;
 import edu.wpi.first.wpilibj.Joystick;
@@ -31,9 +33,22 @@ public class Robot extends SampleRobot {
 	double driveAccelMultiInit = 0.4;
 	double driveAccelMulti = driveAccelMultiInit;
 	Timer driveTimeAccel = new Timer();
-	DigitalInput DIOSwitch = new DigitalInput(0);
+	DigitalInput SwitchDumpAxisExceed = new DigitalInput(0);
+	DigitalInput SwitchHoldAxisExceed = new DigitalInput(1);
 	Encoder wheelTurn = new Encoder(1, 2, false);
 	Spark loadingMotor = new Spark(7);
+	Spark DumpMotor = new Spark(99);
+	//stores button values in memory, makes the code easier to understand
+    final int buttonA = 1;
+    final int buttonB = 2;
+    final int buttonX = 3;
+    final int buttonY = 4;
+    final int leftBumper = 5;
+    final int rightBumper = 6;
+    final int buttonBack = 7;
+    final int buttonStart = 8;
+    final int lsPush = 9;
+    final int rsPush = 10;
 
 	public Robot() {
 		myRobot.setExpiration(0.1);
@@ -67,13 +82,29 @@ public class Robot extends SampleRobot {
 		myRobot.setSafetyEnabled(true);
 		driveTimeAccel.start();
 		while (isOperatorControl() && isEnabled()) {
-			SmartDashboard.putBoolean("DIOSwitch", DIOSwitch.get());
 			SmartDashboard.putBoolean("BoolTest", true);
 			SmartDashboard.putInt("OpticEncoder", wheelTurn.get());
 			myRobot.arcadeDrive(stick.getRawAxis(0) * driveAccelMulti, stick.getRawAxis(1) * driveAccelMulti);
 			driveAccel();
+			DumpBalls();
 			loadingWhatever();
 			Timer.delay(0.005); // wait for a motor update time
+		}
+	}
+	
+	public void DumpBalls()
+	{
+		if(stick.getRawButton(buttonX) && SwitchDumpAxisExceed.get() == false)
+		{
+			DumpMotor.set(0.5);
+		} 
+		else if(stick.getRawButton(buttonY) && SwitchHoldAxisExceed.get() == false)
+		{
+			DumpMotor.set(-0.5);
+		}
+		else
+		{
+			DumpMotor.set(0);
 		}
 	}
 	
@@ -82,7 +113,7 @@ public class Robot extends SampleRobot {
 	public void loadingWhatever()
 	{
 		SmartDashboard.putDouble("LOAD POWAR", loadingPower);
-		if(stick.getRawButton(1))
+		if(stick.getRawButton(buttonA))
 		{
 			loadingMotor.set(loadingPower);
 		}
@@ -90,12 +121,12 @@ public class Robot extends SampleRobot {
 		{
 			loadingMotor.set(0);
 		}
-		if(stick.getRawButton(2) && loadingPower > -0.9)
+		if(stick.getRawButton(buttonB) && loadingPower > -0.9)
 		{
 			loadingPower += -0.1;
 			Timer.delay(0.2);
 		}
-		else if(stick.getRawButton(3) && loadingPower < 0.9)
+		else if(stick.getRawButton(buttonX) && loadingPower < 0.9)
 		{
 			loadingPower += 0.1;
 			Timer.delay(0.2);
