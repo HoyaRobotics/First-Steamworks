@@ -33,6 +33,10 @@ public class Robot extends SampleRobot {
 							//front left, back left, front right, back right.
 	RobotDrive myRobot = new RobotDrive(0,1);
 	Joystick stick = new Joystick(0);
+	Joystick rightStick = new Joystick(1);
+	//driving modes
+	final boolean arcadeDrive = false;
+	final boolean tankDrive = true;
 	
 	////DriveAccel Variables////
 	double driveAccelMultiIncrease = 0.15;
@@ -87,8 +91,6 @@ public class Robot extends SampleRobot {
 	 */
 	@Override
 	public void autonomous() {
-		leftEncoder.reset();
-		rightEncoder.reset();
 		drive(120);
 	}
 
@@ -109,7 +111,8 @@ public class Robot extends SampleRobot {
 			SmartDashboard.putDouble("distance driven left wheels", leftEncoder.getDistance()*-1);
 			SmartDashboard.putDouble("distance driven right wheels", rightEncoder.getDistance());
 			//Move Value, Rotate value
-			myRobot.arcadeDrive(stick.getRawAxis(1) * driveAccelMulti, stick.getRawAxis(0) * -driveAccelMulti);
+			if(arcadeDrive) myRobot.arcadeDrive(stick.getRawAxis(1) * driveAccelMulti, stick.getRawAxis(0) * -driveAccelMulti);
+			if(tankDrive) myRobot.tankDrive(stick.getRawAxis(1), rightStick.getRawAxis(1));
 			driveAccel();
 			DumpBalls();
 			loadingSystem();
@@ -191,15 +194,51 @@ public class Robot extends SampleRobot {
 		}
 	}
 	
-	public void drive(double distance)
-	{
+	//Distance in inches
+	public void drive(double distance){
+		drive(distance, 1);
+	}
+	
+	public void drive(double distance, double speed){
+		leftEncoder.reset();
 		while(Math.abs(leftEncoder.getDistance())<distance)
 		{
-			myRobot.arcadeDrive(1, 0);
+			myRobot.arcadeDrive(speed, 0);
 		}
 		SmartDashboard.putDouble("distance driven left wheels", leftEncoder.getDistance()*-1);
 		SmartDashboard.putDouble("distance driven right wheels", rightEncoder.getDistance());
 	}
+	
+	final double pivotCircumference = 81.64;
+	final double pivotDegree = pivotCircumference / 360;
+	
+	public void turnRight(double degrees){
+		double pivotDegrees = pivotDegree * degrees;
+		while(Math.abs(leftEncoder.getDistance()) < pivotDegrees){
+			myRobot.tankDrive(1, 0);
+		}
+	}
+
+	public void turnLeft(double degrees){
+		double pivotDegrees = pivotDegree * degrees;
+		while(Math.abs(rightEncoder.getDistance()) < pivotDegrees){
+			myRobot.tankDrive(0, 1);
+		}
+	}
+	
+	/*public void pivotRight(){
+		leftEncoder.reset();
+		while(Math.abs(leftEncoder.getDistance()) < 24.4){
+			myRobot.tankDrive(1, 0);
+		}
+	}
+	
+	public void pivotLeft(){
+		rightEncoder.reset();
+		while(Math.abs(rightEncoder.getDistance()) < 24.4){
+			myRobot.tankDrive(0, 1);
+		}
+	}*/
 	
 	/**
 	 * Runs during test mode
