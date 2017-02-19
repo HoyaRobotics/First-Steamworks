@@ -35,8 +35,8 @@ public class Robot extends SampleRobot {
 	Joystick stick = new Joystick(0);
 	Joystick rightStick = new Joystick(1);
 	//driving modes
-	final boolean arcadeDrive = false;
-	final boolean tankDrive = true;
+	final boolean arcadeDrive = true;
+	final boolean tankDrive = false;
 	
 	////DriveAccel Variables////
 	double driveAccelMultiIncrease = 0.15;
@@ -47,8 +47,8 @@ public class Robot extends SampleRobot {
 	////DumpLoad System////
 	DigitalInput SwitchDumpAxisExceed = new DigitalInput(5);
 	DigitalInput SwitchHoldAxisExceed = new DigitalInput(6);
-	Spark dumpMotor = new Spark(10);
-	Spark loadingMotor = new Spark(7);
+	Spark dumpMotor = new Spark(4);
+	Talon loadingMotor = new Talon(2);
 	
 	////CLIMB////
 	Talon climbMotor = new Talon(5);
@@ -72,6 +72,7 @@ public class Robot extends SampleRobot {
 
 	public Robot() {
 		myRobot.setExpiration(0.1);
+		
 	}
 
 	@Override
@@ -91,7 +92,10 @@ public class Robot extends SampleRobot {
 	 */
 	@Override
 	public void autonomous() {
-		drive(120);
+		leftEncoder.setDistancePerPulse(wheelCircumference/2036);
+		rightEncoder.setDistancePerPulse(wheelCircumference/2036);
+		drive(60);
+		//turnRightVariableSpeed(90);
 	}
 
 	/**
@@ -99,6 +103,7 @@ public class Robot extends SampleRobot {
 	 */
 	@Override
 	public void operatorControl() {
+		double speedController = stick.getRawAxis(2);
 		leftEncoder.setDistancePerPulse(wheelCircumference/2036);
 		rightEncoder.setDistancePerPulse(wheelCircumference/2036);
 		myRobot.setSafetyEnabled(true);
@@ -106,15 +111,17 @@ public class Robot extends SampleRobot {
 		leftEncoder.reset();
 		rightEncoder.reset();
 		while (isOperatorControl() && isEnabled()) {
+			speedController = stick.getRawAxis(2);
 			SmartDashboard.putBoolean("BoolTest", true);
 			SmartDashboard.putInt("OpticEncoder", leftEncoder.get());
 			SmartDashboard.putDouble("distance driven left wheels", leftEncoder.getDistance()*-1);
 			SmartDashboard.putDouble("distance driven right wheels", rightEncoder.getDistance());
+			SmartDashboard.putDouble("Speed Controller", speedController*100);
 			//Move Value, Rotate value
-			if(arcadeDrive) myRobot.arcadeDrive(stick.getRawAxis(1) * driveAccelMulti, stick.getRawAxis(0) * -driveAccelMulti);
+			if(arcadeDrive) myRobot.arcadeDrive(stick.getRawAxis(1) * driveAccelMulti * speedController, stick.getRawAxis(0) * speedController * -driveAccelMulti);
 			if(tankDrive) myRobot.tankDrive(stick.getRawAxis(1), rightStick.getRawAxis(1));
 			driveAccel();
-			DumpBalls();
+			dumpBalls();
 			loadingSystem();
 			climbSystem();
 			Timer.delay(0.005); // wait for a motor update time
@@ -133,15 +140,15 @@ public class Robot extends SampleRobot {
 		}
 	}
 	
-	public void DumpBalls()
+	public void dumpBalls()
 	{
-		if(stick.getRawButton(buttonX) && SwitchDumpAxisExceed.get() == false)
+		if(stick.getRawButton(buttonY) /*&& SwitchDumpAxisExceed.get() == false*/)
 		{
-			dumpMotor.set(0.5);
+			dumpMotor.set(0.6);
 		} 
-		else if(stick.getRawButton(buttonY) && SwitchHoldAxisExceed.get() == false)
+		else if(stick.getRawButton(buttonA)/* && SwitchHoldAxisExceed.get() == false*/)
 		{
-			dumpMotor.set(-0.5);
+			dumpMotor.set(-0.4);
 		}
 		else
 		{
@@ -153,24 +160,20 @@ public class Robot extends SampleRobot {
 	
 	public void loadingSystem()
 	{
+		System.out.println("loadingSystem called");
 		SmartDashboard.putDouble("LOAD POWAR", loadingPower);
 		if(stick.getRawButton(rightBumper))
 		{
-			loadingMotor.set(loadingPower);
+			loadingMotor.set(-1);
+			System.out.println("right Bumper pushed");
+		}
+		else if(stick.getRawButton(leftBumper))
+		{
+			loadingMotor.set(1);
 		}
 		else
 		{
 			loadingMotor.set(0);
-		}
-		if(stick.getRawButton(buttonB) && loadingPower > -0.9)
-		{
-			loadingPower += -0.1;
-			Timer.delay(0.2);
-		}
-		else if(stick.getRawButton(buttonX) && loadingPower < 0.9)
-		{
-			loadingPower += 0.1;
-			Timer.delay(0.2);
 		}
 	}
 	
@@ -196,7 +199,7 @@ public class Robot extends SampleRobot {
 	
 	//Distance in inches
 	public void drive(double distance){
-		drive(distance, 1);
+		drive(distance, -1);
 	}
 	
 	public void drive(double distance, double speed){
@@ -207,22 +210,65 @@ public class Robot extends SampleRobot {
 		}
 		SmartDashboard.putDouble("distance driven left wheels", leftEncoder.getDistance()*-1);
 		SmartDashboard.putDouble("distance driven right wheels", rightEncoder.getDistance());
+		double lastDistance = leftEncoder.getDistance();
+		while((Math.abs(leftEncoder.getDistance()) - lastDistance) >= 0.75)
+		{
+			myRobot.arcadeDrive(1,0);
+			lastDistance = Math.abs(leftEncoder.getDistance());
+		}
+		
 	}
 	
-	final double pivotCircumference = 81.64;
+	final double pivotCircumference = 24.4*Math.PI;
 	final double pivotDegree = pivotCircumference / 360;
 	
 	public void turnRight(double degrees){
+		leftEncoder.reset();
 		double pivotDegrees = pivotDegree * degrees;
 		while(Math.abs(leftEncoder.getDistance()) < pivotDegrees){
-			myRobot.tankDrive(1, 0);
+			myRobot.arcadeDrive(0, -1);
 		}
+		double lastDistance = leftEncoder.getDistance();
+		while((Math.abs(leftEncoder.getDistance()) - lastDistance) >= 0.75)
+		{
+			myRobot.arcadeDrive(0,1);
+			lastDistance = Math.abs(leftEncoder.getDistance());
+		}
+		//myRobot.arcadeDrive(0, 1);
 	}
-
+	
+	public void turnRightVariableSpeed(double degrees){
+		leftEncoder.reset();
+		double pivotDegrees = pivotDegree * degrees;
+		double percentage = leftEncoder.getDistance() / pivotDegrees;
+		while(Math.abs(leftEncoder.getDistance()) < pivotDegrees){
+			if(percentage > 0.50)
+			{
+				myRobot.arcadeDrive(0,-1);
+			}
+			else if( percentage > 0.10)
+			{
+				myRobot.arcadeDrive(0,-0.75);
+			}
+			else
+			{
+				myRobot.arcadeDrive(0, -0.5);
+			}
+		}
+		/*double lastDistance = leftEncoder.getDistance();
+		while((Math.abs(leftEncoder.getDistance()) - lastDistance) >= 0.75)
+		{
+			myRobot.arcadeDrive(0,1);
+			lastDistance = Math.abs(leftEncoder.getDistance());
+		}*/
+		//myRobot.arcadeDrive(0, 1);
+	}
+	
 	public void turnLeft(double degrees){
+		rightEncoder.reset();
 		double pivotDegrees = pivotDegree * degrees;
 		while(Math.abs(rightEncoder.getDistance()) < pivotDegrees){
-			myRobot.tankDrive(0, 1);
+			myRobot.arcadeDrive(0, 1);
 		}
 	}
 	
